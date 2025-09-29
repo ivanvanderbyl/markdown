@@ -14,7 +14,7 @@
 ## Installation
 
 ```bash
-go get github.com/alcova-ai/markdown
+go get github.com/ivanvanderbyl/markdown
 ```
 
 ## Quick Start
@@ -26,7 +26,7 @@ import (
     "fmt"
     "os"
 
-    "github.com/alcova-ai/markdown"
+    "github.com/ivanvanderbyl/markdown"
 )
 
 func main() {
