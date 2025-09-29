@@ -1,4 +1,4 @@
-module github.com/alcova-ai/markdown
+module github.com/ivanvanderbyl/markdown
 
 go 1.25.1
 
