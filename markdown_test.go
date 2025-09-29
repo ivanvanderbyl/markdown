@@ -70,9 +70,9 @@ func TestMarkdownTable(t *testing.T) {
 		Rows:   [][]string{{"Alice", "24"}},
 	})
 
-	want := "| Name | Age |" + lf +
-		"|---------|---------|" + lf +
-		"| Alice | 24 |" + lf
+	want := "| Name  | Age |" + lf +
+		"| ----- | --- |" + lf +
+		"| Alice | 24  |" + lf
 
 	if got := md.String(); got != want {
 		t.Fatalf("unexpected table output\nwant: %q\ngot:  %q", want, got)
@@ -93,8 +93,8 @@ func TestMarkdownTableRenderingVariants(t *testing.T) {
 		})
 
 		want := "| Left | Center | Right |" + lf +
-			"|:--------|:-------:|--------:|" + lf +
-			"| L | C | R |" + lf
+			"| :--- | :----: | ----: |" + lf +
+			"| L    |   C    |     R |" + lf
 
 		if got := md.String(); got != want {
 			t.Fatalf("unexpected alignment table output\nwant: %q\ngot:  %q", want, got)
@@ -109,8 +109,8 @@ func TestMarkdownTableRenderingVariants(t *testing.T) {
 		}, TableOptions{AutoFormatHeaders: true})
 
 		want := "| First Name | Status |" + lf +
-			"|---------|---------|" + lf +
-			"| Alice | active |" + lf
+			"| ---------- | ------ |" + lf +
+			"| Alice      | active |" + lf
 
 		if got := md.String(); got != want {
 			t.Fatalf("unexpected custom table output\nwant: %q\ngot:  %q", want, got)

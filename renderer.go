@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/yuin/goldmark/ast"
 	tableast "github.com/yuin/goldmark/extension/ast"
@@ -163,43 +164,44 @@ func renderTableLines(table *tableast.Table) []string {
 		}
 	}
 
-	alignments := table.Alignments
-	if len(alignments) == 0 {
-		alignments = make([]tableast.Alignment, len(headerCells))
+	bodyRows := make([][]string, 0)
+	for rowNode := table.FirstChild(); rowNode != nil; rowNode = rowNode.NextSibling() {
+		row, ok := rowNode.(*tableast.TableRow)
+		if !ok {
+			continue
+		}
+		bodyRows = append(bodyRows, collectRowTexts(row))
 	}
+
+	widths := computeColumnWidths(headerCells, bodyRows)
+	alignments := normalizeAlignments(table.Alignments, len(widths))
 
 	lf := lineFeed()
 	var buf strings.Builder
 
 	if len(headerCells) > 0 {
 		buf.WriteString("|")
-		for _, cell := range headerCells {
+		for i, cell := range headerCells {
 			buf.WriteString(" ")
-			buf.WriteString(cell)
+			buf.WriteString(padCell(cell, widths[i], alignments[i]))
 			buf.WriteString(" |")
 		}
 		buf.WriteString(lf)
 
 		buf.WriteString("|")
-		for i := 0; i < len(headerCells); i++ {
-			align := tableast.AlignNone
-			if i < len(alignments) {
-				align = alignments[i]
-			}
-			buf.WriteString(separatorForAlignment(align))
+		for i := range widths {
+			buf.WriteString(" ")
+			buf.WriteString(alignmentSegment(alignments[i], widths[i]))
+			buf.WriteString(" |")
 		}
 		buf.WriteString(lf)
 	}
 
-	for rowNode := table.FirstChild(); rowNode != nil; rowNode = rowNode.NextSibling() {
-		row, ok := rowNode.(*tableast.TableRow)
-		if !ok {
-			continue
-		}
+	for _, row := range bodyRows {
 		buf.WriteString("|")
-		for _, cellText := range collectRowTexts(row) {
+		for i, cellText := range row {
 			buf.WriteString(" ")
-			buf.WriteString(cellText)
+			buf.WriteString(padCell(cellText, widths[i], alignments[i]))
 			buf.WriteString(" |")
 		}
 		buf.WriteString(lf)
@@ -233,17 +235,22 @@ func collectRowTexts(row *tableast.TableRow) []string {
 	return cells
 }
 
-func separatorForAlignment(a tableast.Alignment) string {
-	switch a {
-	case tableast.AlignLeft:
-		return ":--------|"
-	case tableast.AlignCenter:
-		return ":-------:|"
-	case tableast.AlignRight:
-		return "--------:|"
-	default:
-		return "---------|"
+func computeColumnWidths(header []string, rows [][]string) []int {
+	widths := make([]int, len(header))
+	for i, cell := range header {
+		widths[i] = runeWidth(cell)
 	}
+	for _, row := range rows {
+		for i, cell := range row {
+			if i >= len(widths) {
+				continue
+			}
+			if w := runeWidth(cell); w > widths[i] {
+				widths[i] = w
+			}
+		}
+	}
+	return widths
 }
 
 func lineFeed() string {
@@ -251,4 +258,51 @@ func lineFeed() string {
 		return "\r\n"
 	}
 	return "\n"
+}
+
+func runeWidth(value string) int {
+	return utf8.RuneCountInString(value)
+}
+
+func padCell(value string, width int, align tableast.Alignment) string {
+	padding := width - runeWidth(value)
+	if padding <= 0 {
+		return value
+	}
+	switch align {
+	case tableast.AlignRight:
+		return strings.Repeat(" ", padding) + value
+	case tableast.AlignCenter:
+		left := padding / 2
+		right := padding - left
+		return strings.Repeat(" ", left) + value + strings.Repeat(" ", right)
+	default:
+		return value + strings.Repeat(" ", padding)
+	}
+}
+
+func normalizeAlignments(align []tableast.Alignment, count int) []tableast.Alignment {
+	if len(align) >= count {
+		return align[:count]
+	}
+	result := make([]tableast.Alignment, count)
+	copy(result, align)
+	return result
+}
+
+func alignmentSegment(a tableast.Alignment, width int) string {
+	segmentWidth := width
+	if segmentWidth < 3 {
+		segmentWidth = 3
+	}
+	switch a {
+	case tableast.AlignLeft:
+		return ":" + strings.Repeat("-", segmentWidth-1)
+	case tableast.AlignCenter:
+		return ":" + strings.Repeat("-", segmentWidth-2) + ":"
+	case tableast.AlignRight:
+		return strings.Repeat("-", segmentWidth-1) + ":"
+	default:
+		return strings.Repeat("-", segmentWidth)
+	}
 }
